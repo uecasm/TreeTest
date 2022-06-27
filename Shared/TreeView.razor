@@ -1,0 +1,56 @@
+﻿@using BlazorComponentUtilities
+@typeparam TNode where TNode : class
+
+<ul @attributes="Attributes" class="@_CssClass">
+    @RenderNodes(Nodes)
+</ul>
+
+@code {
+
+    /// <summary>The nodes at the root of the tree</summary>
+    [Parameter, EditorRequired] public IEnumerable<TNode>? Nodes { get; set; }
+    /// <summary>Given a node, returns the children of that node</summary>
+    [Parameter, EditorRequired] public Func<TNode, IEnumerable<TNode>?>? ChildNodes { get; set; }
+    /// <summary>Optionally add additional classes to each node</summary>
+    [Parameter] public Func<TNode, string?>? ChildClasses { get; set; }
+    /// <summary>How to render each node</summary>
+    [Parameter] public RenderFragment<TNode>? Template { get; set; }
+
+    /// <summary>The currently selected node</summary>
+    [Parameter] public TNode? SelectedNode { get; set; }
+    [Parameter] public EventCallback<TNode?> SelectedNodeChanged { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? Attributes { get; set; }
+
+    private string? _CssClass;
+
+    private RenderFragment RenderNodes(IEnumerable<TNode>? nodes) => __builder =>
+    {
+        foreach (var child in nodes ?? Enumerable.Empty<TNode>())
+        {
+            var childClass = new CssBuilder(ChildClasses?.Invoke(child) ?? "")
+                .AddClass("active", child == SelectedNode)
+                .Build();
+
+            <li @key="child" class="@childClass">
+                <a @onclick="@(() => SelectedNodeChanged.InvokeAsync(child))">@Template?.Invoke(child)</a>
+                <ul>@RenderNodes(ChildNodes?.Invoke(child))</ul>
+            </li>
+        }
+    };
+
+    protected override void OnParametersSet()
+    {
+        _CssClass = new CssBuilder("tree-view")
+            .AddClassFromAttributes(Attributes)
+            .Build();
+
+        if (Nodes != null && SelectedNode != null && (ChildNodes == null ? Nodes : Nodes.SelectRecursive(ChildNodes)).All(n => n != SelectedNode))
+        {
+            SelectedNodeChanged.InvokeAsync(null);
+        }
+
+        base.OnParametersSet();
+    }
+
+}

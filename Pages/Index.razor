@@ -1,0 +1,87 @@
+﻿@page "/"
+
+<PageTitle>Index</PageTitle>
+
+<h1>TreeView test</h1>
+
+<TreeView TNode="Node" Nodes="@RootNodes" ChildNodes="@(node => node!.Children)" ChildClasses="@(node => node!.Css)" @bind-SelectedNode="@SelectedNode">
+    <Template Context="node">@node.Render()</Template>
+</TreeView>
+<div>
+    Currently selected: @(SelectedNode?.Name ?? "none")
+</div>
+<button type="button" @onclick="Refresh">Refresh Tree</button>
+
+@code {
+
+    private class Node
+    {
+        public List<Node>? Children { get; set; }
+        public string? Name { get; set; }
+        public string? Css { get; set; }
+
+        public RenderFragment Render() => __builder =>
+        {
+            <text>@Name</text>
+        };
+    }
+
+    private List<Node>? RootNodes { get; set; }
+    private Node? SelectedNode { get; set; }
+
+    private void Refresh()
+    {
+        // simulate an HTTP async callback
+        Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(100));
+
+            if (RootNodes == null)
+            {
+                RootNodes = new List<Node>()
+                {
+                    new()
+                    {
+                        Name = "root",
+                        Children = new List<Node>()
+                        {
+                            new()
+                            {
+                                Name = "first",
+                                Children = new List<Node>()
+                                {
+                                    new() { Name = "child1", Css = "error" },
+                                    new()
+                                    {
+                                        Name = "child2",
+                                        Children = new List<Node>()
+                                        {
+                                            new() { Name = "grandchild1" },
+                                        }
+                                    },
+                                }
+                            },
+                            new() { Name = "second" },
+                            new()
+                            {
+                                Name = "third",
+                                Children = new List<Node>()
+                                {
+                                    new() { Name = "child3", Css = "warning" },
+                                }
+                            }
+                        }
+                    }
+                };
+            }
+            else
+            {
+                // bug: we re-add the child nodes as "extra" identical children (e.g. forgetting to clear the child list when processing incoming data)
+                RootNodes[0].Children!.AddRange(RootNodes[0].Children!.GetRange(0, 3));
+            }
+
+            await InvokeAsync(StateHasChanged);
+        });
+    }
+
+}
